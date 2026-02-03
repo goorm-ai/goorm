@@ -341,8 +341,19 @@ func (m *Migrator) generateColumnDef(field *FieldMeta) string {
 	// Handle auto-increment primary key
 	// 处理自增主键
 	if field.PrimaryKey && field.AutoIncrement {
-		parts = append(parts, m.dialect.AutoIncrementClause())
-		parts = append(parts, "PRIMARY KEY")
+		// SQLite requires: INTEGER PRIMARY KEY AUTOINCREMENT
+		// PostgreSQL uses: SERIAL PRIMARY KEY
+		// MySQL uses: INT AUTO_INCREMENT PRIMARY KEY
+		// SQLite 需要：INTEGER PRIMARY KEY AUTOINCREMENT
+		// PostgreSQL 使用：SERIAL PRIMARY KEY
+		// MySQL 使用：INT AUTO_INCREMENT PRIMARY KEY
+		switch m.dialect.Name() {
+		case "sqlite", "sqlite3":
+			parts = append(parts, "INTEGER PRIMARY KEY AUTOINCREMENT")
+		default:
+			parts = append(parts, m.dialect.AutoIncrementClause())
+			parts = append(parts, "PRIMARY KEY")
+		}
 	} else {
 		parts = append(parts, sqlType)
 
@@ -428,27 +439,106 @@ func (m *Migrator) generateBackupName(table, column string) string {
 // getDBTables gets the current database schema.
 // getDBTables 获取当前数据库架构。
 func (m *Migrator) getDBTables(ctx context.Context) ([]DBTable, error) {
-	var query string
-
 	switch m.dialect.Name() {
 	case "postgres":
-		query = `
-			SELECT table_name, column_name, data_type, is_nullable, column_default
-			FROM information_schema.columns
-			WHERE table_schema = 'public'
-			ORDER BY table_name, ordinal_position
-		`
+		return m.getPostgresTables(ctx)
 	case "mysql":
-		query = `
-			SELECT table_name, column_name, data_type, is_nullable, column_default
-			FROM information_schema.columns
-			WHERE table_schema = DATABASE()
-			ORDER BY table_name, ordinal_position
-		`
+		return m.getMySQLTables(ctx)
+	case "sqlite", "sqlite3":
+		return m.getSQLiteTables(ctx)
 	default:
 		return nil, fmt.Errorf("unsupported dialect: %s", m.dialect.Name())
 	}
+}
 
+// getPostgresTables gets PostgreSQL database schema.
+// getPostgresTables 获取 PostgreSQL 数据库架构。
+func (m *Migrator) getPostgresTables(ctx context.Context) ([]DBTable, error) {
+	query := `
+		SELECT table_name, column_name, data_type, is_nullable, column_default
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+		ORDER BY table_name, ordinal_position
+	`
+	return m.queryDBTables(ctx, query)
+}
+
+// getMySQLTables gets MySQL database schema.
+// getMySQLTables 获取 MySQL 数据库架构。
+func (m *Migrator) getMySQLTables(ctx context.Context) ([]DBTable, error) {
+	query := `
+		SELECT table_name, column_name, data_type, is_nullable, column_default
+		FROM information_schema.columns
+		WHERE table_schema = DATABASE()
+		ORDER BY table_name, ordinal_position
+	`
+	return m.queryDBTables(ctx, query)
+}
+
+// getSQLiteTables gets SQLite database schema.
+// getSQLiteTables 获取 SQLite 数据库架构。
+func (m *Migrator) getSQLiteTables(ctx context.Context) ([]DBTable, error) {
+	// Get list of tables
+	// 获取表列表
+	rows, err := m.db.sqlDB.QueryContext(ctx, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
+	if err != nil {
+		return nil, err
+	}
+
+	var tableNames []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		tableNames = append(tableNames, name)
+	}
+	rows.Close()
+
+	tables := make([]DBTable, 0, len(tableNames))
+
+	for _, tableName := range tableNames {
+		// Get columns for each table using PRAGMA
+		// 使用 PRAGMA 获取每个表的列
+		colRows, err := m.db.sqlDB.QueryContext(ctx, fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+		if err != nil {
+			return nil, err
+		}
+
+		columns := make(map[string]ColumnInfo)
+		for colRows.Next() {
+			var cid int
+			var name, colType string
+			var notNull, pk int
+			var dfltValue *string
+
+			if err := colRows.Scan(&cid, &name, &colType, &notNull, &dfltValue, &pk); err != nil {
+				colRows.Close()
+				return nil, err
+			}
+
+			columns[name] = ColumnInfo{
+				Name:     name,
+				Type:     colType,
+				Nullable: notNull == 0,
+				Default:  dfltValue,
+			}
+		}
+		colRows.Close()
+
+		tables = append(tables, DBTable{
+			Name:    tableName,
+			Columns: columns,
+		})
+	}
+
+	return tables, nil
+}
+
+// queryDBTables executes a schema query and returns table info.
+// queryDBTables 执行架构查询并返回表信息。
+func (m *Migrator) queryDBTables(ctx context.Context, query string) ([]DBTable, error) {
 	rows, err := m.db.sqlDB.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
