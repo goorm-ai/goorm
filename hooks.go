@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 )
 
 // HookType represents the type of hook.
@@ -277,8 +278,10 @@ func (m *HookManager) RegisterModelHooks(model any, tableName string) {
 func TimestampHook(config NamingConfig) HookFunc {
 	return func(ctx *HookContext) error {
 		if ctx.Data == nil {
-			return nil
+			ctx.Data = make(map[string]any)
 		}
+
+		now := time.Now()
 
 		switch ctx.Action {
 		case ActionCreate:
@@ -289,7 +292,7 @@ func TimestampHook(config NamingConfig) HookFunc {
 				createdField = "created_at"
 			}
 			if _, exists := ctx.Data[createdField]; !exists {
-				ctx.Data[createdField] = "NOW()"
+				ctx.Data[createdField] = now
 			}
 
 			// Set updated_at if not present
@@ -299,7 +302,7 @@ func TimestampHook(config NamingConfig) HookFunc {
 				updatedField = "updated_at"
 			}
 			if _, exists := ctx.Data[updatedField]; !exists {
-				ctx.Data[updatedField] = "NOW()"
+				ctx.Data[updatedField] = now
 			}
 
 		case ActionUpdate:
@@ -309,7 +312,7 @@ func TimestampHook(config NamingConfig) HookFunc {
 			if updatedField == "" {
 				updatedField = "updated_at"
 			}
-			ctx.Data[updatedField] = "NOW()"
+			ctx.Data[updatedField] = now
 		}
 
 		return nil

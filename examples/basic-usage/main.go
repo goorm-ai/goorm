@@ -1,20 +1,14 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 
 	"github.com/goorm-ai/goorm"
-	"modernc.org/sqlite"
+	_ "modernc.org/sqlite" // SQLite 驱动（纯 Go 实现，无需 CGO）
 )
 
-// 将 modernc.org/sqlite 注册为 sqlite3 驱动名
-func init() {
-	sql.Register("sqlite3", &sqlite.Driver{})
-}
-
-// User 定义用户模型（简化版，移除约束便于测试）
+// User 定义用户模型
 type User struct {
 	goorm.Model
 	Name  string `json:"name"`
@@ -27,6 +21,7 @@ func main() {
 	fmt.Println()
 
 	// 使用 SQLite 内存数据库进行测试
+	// GoORM 会自动检测可用的 SQLite 驱动
 	db, err := goorm.Connect("sqlite://:memory:")
 	if err != nil {
 		log.Fatalf("连接数据库失败: %v", err)

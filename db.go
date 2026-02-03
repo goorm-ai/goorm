@@ -80,9 +80,55 @@ func ConnectWithConfig(dsn string, config Config) (*DB, error) {
 		return nil, fmt.Errorf("unsupported database driver %q: %w", driver, err)
 	}
 
-	sqlDB, err := sql.Open(dialect.DriverName(), cleanDSN)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+	// For SQLite, try multiple driver names for compatibility
+	// 对于 SQLite，尝试多个驱动名以兼容不同实现
+	// - "sqlite3": github.com/mattn/go-sqlite3 (requires CGO)
+	// - "sqlite":  modernc.org/sqlite (pure Go)
+	var sqlDB *sql.DB
+	driverName := dialect.DriverName()
+
+	if driver == "sqlite3" || driver == "sqlite" {
+		// Try available SQLite drivers in order of preference
+		// 按优先顺序尝试可用的 SQLite 驱动
+		sqliteDrivers := []string{"sqlite3", "sqlite"}
+		var lastErr error
+
+		for _, drv := range sqliteDrivers {
+			sqlDB, err = sql.Open(drv, cleanDSN)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+
+			// Test if the driver actually works
+			// 测试驱动是否真正可用
+			testCtx, testCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			pingErr := sqlDB.PingContext(testCtx)
+			testCancel()
+
+			if pingErr == nil {
+				driverName = drv
+				break
+			}
+
+			// Driver exists but doesn't work (e.g., CGO disabled for sqlite3)
+			// 驱动存在但不工作（例如 sqlite3 在 CGO 禁用时）
+			sqlDB.Close()
+			sqlDB = nil
+			lastErr = pingErr
+		}
+
+		if sqlDB == nil {
+			if lastErr != nil {
+				return nil, fmt.Errorf("failed to open SQLite database: %w. Make sure you import a SQLite driver: 'modernc.org/sqlite' (pure Go) or 'github.com/mattn/go-sqlite3' (requires CGO)", lastErr)
+			}
+			return nil, fmt.Errorf("no SQLite driver available. Import 'modernc.org/sqlite' or 'github.com/mattn/go-sqlite3'")
+		}
+	} else {
+		sqlDB, err = sql.Open(driverName, cleanDSN)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open database: %w", err)
+		}
 	}
 
 	// Configure connection pool
@@ -92,14 +138,16 @@ func ConnectWithConfig(dsn string, config Config) (*DB, error) {
 	sqlDB.SetConnMaxLifetime(config.ConnMaxLifetime)
 	sqlDB.SetConnMaxIdleTime(config.ConnMaxIdleTime)
 
-	// Test connection
-	// 测试连接
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Test connection (skip for SQLite as we already tested)
+	// 测试连接（SQLite 跳过因为已测试）
+	if driver != "sqlite3" && driver != "sqlite" {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	if err := sqlDB.PingContext(ctx); err != nil {
-		sqlDB.Close()
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+		if err := sqlDB.PingContext(ctx); err != nil {
+			sqlDB.Close()
+			return nil, fmt.Errorf("failed to ping database: %w", err)
+		}
 	}
 
 	dbCtx, dbCancel := context.WithCancel(context.Background())

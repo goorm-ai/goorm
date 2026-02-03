@@ -134,6 +134,33 @@ func (e *Executor) ExecuteFind(ctx context.Context, query *Query) *Result {
 func (e *Executor) ExecuteCreate(ctx context.Context, query *Query) *Result {
 	startTime := time.Now()
 
+	// Execute before create hook
+	// 执行创建前钩子
+	hookCtx := &HookContext{
+		Context: ctx,
+		DB:      e.db,
+		Table:   query.Table,
+		Action:  ActionCreate,
+		Query:   query,
+		Data:    query.Data,
+	}
+
+	if err := e.db.hooks.Execute(hookCtx, HookBeforeCreate); err != nil {
+		return &Result{
+			Success: false,
+			Error: &ResultError{
+				Code:    "HOOK_ERROR",
+				Message: err.Error(),
+			},
+		}
+	}
+
+	// Update query data with hook modifications
+	// 用钩子的修改更新查询数据
+	if hookCtx.Data != nil {
+		query.Data = hookCtx.Data
+	}
+
 	builder := NewSQLBuilder(e.dialect, query)
 	buildResult, err := builder.Build()
 	if err != nil {
@@ -149,7 +176,7 @@ func (e *Executor) ExecuteCreate(ctx context.Context, query *Query) *Result {
 	var lastID uint64
 
 	if e.dialect.SupportsReturning() {
-		// PostgreSQL: use RETURNING
+		// PostgreSQL/SQLite: use RETURNING
 		err = e.db.sqlDB.QueryRowContext(ctx, buildResult.SQL, buildResult.Params...).Scan(&lastID)
 		if err != nil && err != sql.ErrNoRows {
 			return e.handleSQLError(err, buildResult)
