@@ -3,7 +3,7 @@ module goorm-example
 go 1.25.6
 
 require (
-	github.com/goorm-ai/goorm v0.1.1
+	github.com/goorm-ai/goorm v0.1.3
 	modernc.org/sqlite v1.44.3
 )
 

@@ -1,0 +1,42 @@
+# Binaries / 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries / 测试二进制文件
+*.test
+
+# Output / 输出目录
+/bin/
+/dist/
+/build/
+
+# Go workspace / Go 工作区
+go.work
+go.work.sum
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS / 操作系统
+.DS_Store
+Thumbs.db
+
+# Coverage / 测试覆盖率
+coverage.out
+coverage.html
+*.coverprofile
+
+# Temporary files / 临时文件
+*.tmp
+*.temp
+*.log
+
+# Example dependencies / 示例依赖（子模块）
+examples/*/go.sum

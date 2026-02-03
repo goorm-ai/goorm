@@ -342,15 +342,25 @@ func (db *DB) NL(query string) *Result {
 // NLContext executes a natural language query with the given context.
 // NLContext 使用给定的上下文执行自然语言查询。
 func (db *DB) NLContext(ctx context.Context, query string) *Result {
-	// TODO: Implement natural language to JQL conversion
-	// TODO: 实现自然语言到 JQL 的转换
-	return &Result{
-		Success: false,
-		Error: &ResultError{
-			Code:    "NOT_IMPLEMENTED",
-			Message: "natural language queries are not yet implemented",
-		},
+	parser := NewNLParser(db)
+	jqlQuery, err := parser.Parse(query)
+	if err != nil {
+		return &Result{
+			Success: false,
+			Error: &ResultError{
+				Code:    "NL_PARSE_ERROR",
+				Message: err.Error(),
+			},
+		}
 	}
+
+	// Store the original NL query for debugging
+	// 存储原始自然语言查询用于调试
+	result := db.ExecuteQuery(ctx, jqlQuery)
+	result.NLQuery = query
+	result.ParsedJQL = jqlQuery.String()
+
+	return result
 }
 
 // Register registers one or more models with the database.

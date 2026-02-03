@@ -73,6 +73,14 @@ type Result struct {
 	// Explain contains query explanation (for explain operation).
 	// Explain 包含查询解释（用于 explain 操作）。
 	Explain *ExplainResult `json:"explain,omitempty"`
+
+	// NLQuery contains the original natural language query (for NL operations).
+	// NLQuery 包含原始自然语言查询（用于 NL 操作）。
+	NLQuery string `json:"nl_query,omitempty"`
+
+	// ParsedJQL contains the JQL parsed from natural language (for NL operations).
+	// ParsedJQL 包含从自然语言解析的 JQL（用于 NL 操作）。
+	ParsedJQL string `json:"parsed_jql,omitempty"`
 }
 
 // ResultMeta contains metadata about the query execution.
