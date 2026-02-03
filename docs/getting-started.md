@@ -19,13 +19,15 @@ GoORM 支持 PostgreSQL、MySQL 和 SQLite。
 ```go
 import "github.com/goorm-ai/goorm"
 
-// PostgreSQL
+// PostgreSQL (requires: github.com/lib/pq)
 db, err := goorm.Connect("postgres://user:pass@localhost:5432/dbname?sslmode=disable")
 
-// MySQL
+// MySQL (requires: github.com/go-sql-driver/mysql)
 db, err := goorm.Connect("mysql://user:pass@localhost:3306/dbname")
 
-// SQLite
+// SQLite (requires: modernc.org/sqlite or github.com/mattn/go-sqlite3)
+// SQLite（需要：modernc.org/sqlite 或 github.com/mattn/go-sqlite3）
+import _ "modernc.org/sqlite" // Pure Go, recommended / 纯 Go 实现，推荐
 db, err := goorm.Connect("sqlite://./data.db")
 ```
 

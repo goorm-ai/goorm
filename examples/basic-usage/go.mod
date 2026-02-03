@@ -3,11 +3,9 @@ module goorm-example
 go 1.25.6
 
 require (
-	github.com/goorm-ai/goorm v0.1.0
+	github.com/goorm-ai/goorm v0.1.1
 	modernc.org/sqlite v1.44.3
 )
-
-replace github.com/goorm-ai/goorm => ../..
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

@@ -238,6 +238,12 @@ func (db *DB) Execute(jql string) *Result {
 	return db.ExecuteContext(db.ctx, jql)
 }
 
+// Query is an alias for Execute, provided for convenience.
+// Query 是 Execute 的别名，为方便使用而提供。
+func (db *DB) Query(jql string) *Result {
+	return db.Execute(jql)
+}
+
 // ExecuteContext executes a JQL query with the given context.
 // ExecuteContext 使用给定的上下文执行 JQL 查询。
 func (db *DB) ExecuteContext(ctx context.Context, jql string) *Result {

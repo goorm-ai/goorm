@@ -29,17 +29,36 @@ config.ConnMaxLifetime = time.Hour
 config.ConnMaxIdleTime = 30 * time.Minute
 ```
 
+## Timeout / 超时设置
+
+```go
+// Default timeout for all operations / 所有操作的默认超时
+config.DefaultTimeout = 30 * time.Second
+
+// Query timeout / 查询超时
+config.QueryTimeout = 10 * time.Second
+
+// Write timeout / 写操作超时
+config.WriteTimeout = 30 * time.Second
+```
+
 ## Naming Convention / 命名规范
 
 ```go
 // Table prefix / 表前缀
 config.Naming.TablePrefix = "app_"
 
-// Use singular table names / 使用单数表名
-config.Naming.SingularTable = false
+// Custom table naming function / 自定义表名函数
+config.Naming.TableNamer = goorm.SnakeCasePlural
 
-// Snake case for columns / 列名使用蛇形命名
-config.Naming.SnakeCase = true
+// Custom column naming function / 自定义列名函数
+config.Naming.ColumnNamer = goorm.SnakeCase
+
+// Field names / 字段名称
+config.Naming.PrimaryKey = "id"
+config.Naming.CreatedAtField = "created_at"
+config.Naming.UpdatedAtField = "updated_at"
+config.Naming.DeletedAtField = "deleted_at"
 ```
 
 ## Migration / 迁移设置
@@ -53,29 +72,38 @@ config.Migration.Aggressive = false
 
 // Auto backup before migration / 迁移前自动备份
 config.Migration.AutoBackup = true
+
+// Backup before delete / 删除前备份
+config.Migration.BackupBeforeDelete = true
+
+// Backup retention period / 备份保留时间
+config.Migration.BackupRetention = 30 * 24 * time.Hour
 ```
 
-## Health Check / 健康检查
+## Security / 安全设置
 
 ```go
-// Enable background health check / 启用后台健康检查
-config.Health.Enabled = true
+// Confirm destructive operations / 确认破坏性操作
+config.Security.ConfirmDestructive = true
 
-// Check interval / 检查间隔
-config.Health.Interval = 30 * time.Second
+// Minimum affected rows to trigger confirmation / 触发确认的最小影响行数
+config.Security.ConfirmThreshold = 10
 
-// Timeout for health check / 健康检查超时
-config.Health.Timeout = 5 * time.Second
+// Enable audit logging / 启用审计日志
+config.Security.AuditEnabled = true
+
+// Mask sensitive fields / 脱敏敏感字段
+config.Security.MaskSensitive = true
 ```
 
-## Logging / 日志
+## Debug / 调试
 
 ```go
-// Log level / 日志级别
-config.Log.Level = "info"  // debug, info, warn, error
+// Enable debug mode / 启用调试模式
+config.Debug = true
 
-// Log slow queries / 记录慢查询
-config.Log.SlowThreshold = 200 * time.Millisecond
+// Custom logger / 自定义日志器
+config.Logger = myCustomLogger
 ```
 
 ## Full Example / 完整示例
@@ -87,23 +115,29 @@ config := goorm.DefaultConfig()
 config.MaxOpenConns = 100
 config.MaxIdleConns = 10
 config.ConnMaxLifetime = time.Hour
+config.ConnMaxIdleTime = 30 * time.Minute
+
+// Timeout / 超时
+config.DefaultTimeout = 30 * time.Second
+config.QueryTimeout = 10 * time.Second
 
 // Naming / 命名
 config.Naming.TablePrefix = "app_"
-config.Naming.SingularTable = false
+config.Naming.TableNamer = goorm.SnakeCasePlural
+config.Naming.ColumnNamer = goorm.SnakeCase
 
 // Migration / 迁移
 config.Migration.AutoMigrate = true
 config.Migration.Aggressive = false
 config.Migration.AutoBackup = true
 
-// Health / 健康检查
-config.Health.Enabled = true
-config.Health.Interval = 30 * time.Second
+// Security / 安全
+config.Security.ConfirmDestructive = true
+config.Security.ConfirmThreshold = 10
+config.Security.AuditEnabled = true
 
-// Logging / 日志
-config.Log.Level = "info"
-config.Log.SlowThreshold = 200 * time.Millisecond
+// Debug / 调试
+config.Debug = false
 
 db, err := goorm.ConnectWithConfig(dsn, config)
 ```
